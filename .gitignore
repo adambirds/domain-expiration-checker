@@ -1,2 +1,4 @@
 config.yaml
 .zuliprc
+__pycache__/
+.mypy_cache/
