@@ -188,6 +188,21 @@ def send_expire_zulip_message(domain, days, config_options):
     }
     result = client.send_message(request)
 
+def send_completion_zulip_message(config_options):
+    
+
+    # Pass the path to your zuliprc file here.
+    client = zulip.Client(config_file=config_options['APP']['ZULIP_BOT_FILE'])
+
+    # Send a stream message
+    request = {
+        "type": "stream",
+        "to": config_options['APP']['ZULIP_STREAM'],
+        "topic": "Domain Check Complete",
+        "content": "All domains have been successfully checked for expiry." 
+    }
+    result = client.send_message(request)
+
 
 def process_config_file():
 
@@ -222,6 +237,9 @@ def main():
         # Need to wait between queries to avoid triggering DOS measures like so:
         # Your IP has been restricted due to excessive access, please wait a bit
         time.sleep(conf_options['APP']['WHOIS_SLEEP_TIME'])
+
+    if 'ZulipAPI' in config_options['APP']['NOTIFICATIONS']:
+        send_completion_zulip_message(conf_options)
 
 if __name__ == "__main__":
     main()
