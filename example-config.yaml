@@ -4,6 +4,7 @@ APP:
   EXPIRE_DAYS_THRESHOLD: 30
   ZULIP_BOT_FILE: ".zuliprc"
   ZULIP_STREAM: "domain-expiry-tracking"
+  ZULIP_ERROR_STREAM: "script-errors"
   DEBUG: true
   DOMAINS:
     - "example.co.uk"

@@ -72,12 +72,16 @@ def make_whois_query(domain, config_options):
         p = subprocess.Popen(['whois', domain],
                              stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     except Exception as e:
+        if 'ZulipAPI' in config_options['APP']['NOTIFICATIONS']:
+            send_error_zulip_message("Unable to Popen() the whois binary. Exception %s" % e, config_options)
         print("Unable to Popen() the whois binary. Exception %s" % e)
         sys.exit(1)
 
     try:
         whois_data = p.communicate()[0]
     except Exception as e:
+        if 'ZulipAPI' in config_options['APP']['NOTIFICATIONS']:
+            send_error_zulip_message("Unable to read from the Popen pipe. Exception %s" % e, config_options)
         print("Unable to read from the Popen pipe. Exception %s" % e)
         sys.exit(1)
 
@@ -118,6 +122,8 @@ def calculate_expiration_days(expire_days, expiration_date, config_options):
     try:
         domain_expire = expiration_date - datetime.now()
     except:
+        if 'ZulipAPI' in config_options['APP']['NOTIFICATIONS']:
+            send_error_zulip_message("Unable to calculate the expiration days", config_options)
         print("Unable to calculate the expiration days")
         sys.exit(1)
 
@@ -203,6 +209,20 @@ def send_completion_zulip_message(config_options):
     }
     result = client.send_message(request)
 
+def send_error_zulip_message(error, config_options):
+    
+
+    # Pass the path to your zuliprc file here.
+    client = zulip.Client(config_file=config_options['APP']['ZULIP_BOT_FILE'])
+
+    # Send a stream message
+    request = {
+        "type": "stream",
+        "to": config_options['APP']['ZULIP_ERROR_STREAM'],
+        "topic": "Domain Check Error",
+        "content": error 
+    }
+    result = client.send_message(request)
 
 def process_config_file():
 
