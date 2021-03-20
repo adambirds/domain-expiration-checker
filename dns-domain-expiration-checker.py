@@ -22,6 +22,7 @@ import dateutil.parser
 import subprocess
 import yaml
 import zulip
+from pyzabbix import ZabbixSender, ZabbixMetric
 from datetime import datetime
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -74,6 +75,8 @@ def make_whois_query(domain, config_options):
     except Exception as e:
         if 'ZulipAPI' in config_options['APP']['NOTIFICATIONS']:
             send_error_zulip_message("Unable to Popen() the whois binary. Exception %s" % e, config_options)
+        if 'Zabbix' in conf_options['APP']['SCRIPT_MONITORING']:
+            send_zabbix_script_monitoring(1, config_options)
         print("Unable to Popen() the whois binary. Exception %s" % e)
         sys.exit(1)
 
@@ -82,6 +85,8 @@ def make_whois_query(domain, config_options):
     except Exception as e:
         if 'ZulipAPI' in config_options['APP']['NOTIFICATIONS']:
             send_error_zulip_message("Unable to read from the Popen pipe. Exception %s" % e, config_options)
+        if 'Zabbix' in conf_options['APP']['SCRIPT_MONITORING']:
+            send_zabbix_script_monitoring(1, config_options)
         print("Unable to read from the Popen pipe. Exception %s" % e)
         sys.exit(1)
 
@@ -124,6 +129,8 @@ def calculate_expiration_days(expire_days, expiration_date, config_options):
     except:
         if 'ZulipAPI' in config_options['APP']['NOTIFICATIONS']:
             send_error_zulip_message("Unable to calculate the expiration days", config_options)
+        if 'Zabbix' in conf_options['APP']['SCRIPT_MONITORING']:
+            send_zabbix_script_monitoring(1, config_options)
         print("Unable to calculate the expiration days")
         sys.exit(1)
 
@@ -224,6 +231,13 @@ def send_error_zulip_message(error, config_options):
     }
     result = client.send_message(request)
 
+def send_zabbix_script_monitoring(status_code, config_options):
+    metrics = []
+    m = ZabbixMetric(config_options['APP']['SERVER_NAME'], "cron.domain_expiry_checker", status_code)
+    metrics.append(m)
+    zbx = ZabbixSender(use_config=config_options['APP']['ZABBIX_CONFIG_FILE'])
+    zbx.send(metrics)
+
 def process_config_file():
 
     with open("config.yaml", 'r') as stream:
@@ -258,8 +272,10 @@ def main():
         # Your IP has been restricted due to excessive access, please wait a bit
         time.sleep(conf_options['APP']['WHOIS_SLEEP_TIME'])
 
-    if 'ZulipAPI' in config_options['APP']['NOTIFICATIONS']:
+    if 'ZulipAPI' in conf_options['APP']['NOTIFICATIONS']:
         send_completion_zulip_message(conf_options)
+    if 'Zabbix' in conf_options['APP']['SCRIPT_MONITORING']:
+        send_zabbix_script_monitoring(0, conf_options)
 
 if __name__ == "__main__":
     main()

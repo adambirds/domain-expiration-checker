@@ -12,6 +12,10 @@ APP:
   NOTIFICATIONS:
     - "ZulipAPI"
     - "Email"
+  SCRIPT_MONITORING:
+    - 'Zabbix'
+  ZABBIX_CONFIG_FILE: "/etc/zabbix/zabbix_agent2.conf"
+  SERVER_NAME: "server.example.com"
   SMTP_SERVER: "smtp.example.com"
   SMTP_PORT: 25
   SMTP_FROM: "no-reply@example.com"
