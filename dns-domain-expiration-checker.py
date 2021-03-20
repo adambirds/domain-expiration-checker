@@ -20,31 +20,30 @@ import argparse
 import smtplib
 import dateutil.parser
 import subprocess
+import yaml
+import zulip
 from datetime import datetime
-from email.MIMEMultipart import MIMEMultipart
-from email.MIMEText import MIMEText
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 
-EXPIRE_STRINGS = [ "Registry Expiry Date:",
-                   "Expiration:",
-                   "Domain Expiration Date",
-                   "Registrar Registration Expiration Date:",
-                   "expire:",
-                   "expires:",
-                   "Expiry date"
+EXPIRE_STRINGS = [ b"Registry Expiry Date:",
+                   b"Expiration:",
+                   b"Domain Expiration Date",
+                   b"Registrar Registration Expiration Date:",
+                   b"expire:",
+                   b"expires:",
+                   b"Expiry date"
                  ]
 
 REGISTRAR_STRINGS = [
-                      "Registrar:"
+                      b"Registrar:"
                     ]
 
-DEBUG = 0
-
-
-def debug(string_to_print):
+def debug(string_to_print, config_options):
     """
        Helper function to assist with printing debug messages.
     """
-    if DEBUG:
+    if config_options['APP']['DEBUG']:
         print(string_to_print)
 
 
@@ -64,11 +63,11 @@ def print_domain(domain, registrar, expiration_date, days_remaining):
           expiration_date, days_remaining))
 
 
-def make_whois_query(domain):
+def make_whois_query(domain, config_options):
     """
        Execute whois and parse the data to extract specific data
     """
-    debug("Sending a WHOIS query for the domain %s" % domain)
+    debug("Sending a WHOIS query for the domain %s" % domain, config_options)
     try:
         p = subprocess.Popen(['whois', domain],
                              stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
@@ -88,33 +87,33 @@ def make_whois_query(domain):
     #    print("The WHOIS utility exit()'ed with a non-zero return code")
     #    sys.exit(1)
 
-    return(parse_whois_data(whois_data))
+    return(parse_whois_data(whois_data, config_options))
 
 
-def parse_whois_data(whois_data):
+def parse_whois_data(whois_data, config_options):
     """
        Grab the registrar and expiration date from the WHOIS data
     """
-    debug("Parsing the whois data blob %s" % whois_data)
+    debug("Parsing the whois data blob %s" % whois_data.splitlines(), config_options)
     expiration_date = "00/00/00 00:00:00"
     registrar = "Unknown"
 
     for line in whois_data.splitlines():
         if any(expire_string in line for expire_string in EXPIRE_STRINGS):
-            expiration_date = dateutil.parser.parse(line.partition(": ")[2], ignoretz=True)
+            expiration_date = dateutil.parser.parse(line.partition(b": ")[2], ignoretz=True)
 
         if any(registrar_string in line for registrar_string in
                REGISTRAR_STRINGS):
-            registrar = line.split("Registrar:")[1].strip()
+            registrar = line.split(b"Registrar:")[1].strip()
 
     return expiration_date, registrar
 
 
-def calculate_expiration_days(expire_days, expiration_date):
+def calculate_expiration_days(expire_days, expiration_date, config_options):
     """
        Check to see when a domain will expire
     """
-    debug("Expiration date %s Time now %s" % (expiration_date, datetime.now()))
+    debug("Expiration date %s Time now %s" % (expiration_date, datetime.now()),config_options)
 
     try:
         domain_expire = expiration_date - datetime.now()
@@ -145,11 +144,14 @@ def domain_expire_notify(domain, config_options, days):
        for Nagios, SNMP, etc. can be done by defining a new function and
        calling it here.
     """
-    debug("Triggering notifications for the DNS domain %s" % domain)
+    debug("Triggering notifications for the DNS domain %s" % domain, config_options)
 
     # Send outbound e-mail if a rcpt is passed in
-    if config_options["email"]:
+    if 'Email' in config_options['APP']['NOTIFICATIONS']:
         send_expire_email(domain, days, config_options)
+
+    if 'ZulipAPI' in config_options['APP']['NOTIFICATIONS']:
+        send_expire_zulip_message(domain, days, config_options)
 
 
 def send_expire_email(domain, days, config_options):
@@ -157,41 +159,43 @@ def send_expire_email(domain, days, config_options):
        Generate an e-mail to let someone know a domain is about to expire
     """
     debug("Generating an e-mail to %s for domain %s" %
-         (config_options["smtpto"], domain))
+         (config_options['APP']['SMTP_SEND_TO'], domain), config_options)
     msg = MIMEMultipart()
-    msg['From'] = config_options["smtpfrom"]
-    msg['To'] = config_options["smtpto"]
+    msg['From'] = config_options['APP']['SMTP_FROM']
+    msg['To'] = config_options['APP']['SMTP_SEND_TO']
     msg['Subject'] = "The DNS Domain %s is set to expire in %d days" % (domain, days)
 
-    body = "Time to renew %s" % domain
+    body = "The DNS Domain %s is set to expire in %d days" % (domain, days)
     msg.attach(MIMEText(body, 'plain'))
 
-    smtp_connection = smtplib.SMTP(config_options["smtpserver"],config_options["smtpport"])
+    smtp_connection = smtplib.SMTP(config_options['APP']['SMTP_SERVER'],config_options['APP']['SMTP_PORT'])
     message = msg.as_string()
-    smtp_connection.sendmail(config_options["smtpfrom"], config_options["smtpto"], message)
+    smtp_connection.sendmail(config_options['APP']['SMTP_FROM'], config_options['APP']['SMTP_SEND_TO'], message)
     smtp_connection.quit()
 
+def send_expire_zulip_message(domain, days, config_options):
+    
 
-def processcli():
-    """
-        parses the CLI arguments and returns a domain or
-        a file with a list of domains.
-    """
-    parser = argparse.ArgumentParser(description='DNS Statistics Processor')
+    # Pass the path to your zuliprc file here.
+    client = zulip.Client(config_file=config_options['APP']['ZULIP_BOT_FILE'])
 
-    parser.add_argument('--domainfile', help="Path to file with list of domains and expiration intervals.")
-    parser.add_argument('--domainname', help="Domain to check expiration on.")
-    parser.add_argument('--email', action="store_true", help="Enable debugging output.")
-    parser.add_argument('--interactive',action="store_true", help="Enable debugging output.")
-    parser.add_argument('--expiredays', default=10000, type=int, help="Expiration threshold to check against.")
-    parser.add_argument('--sleeptime', default=60, type=int, help="Time to sleep between whois queries.")
-    parser.add_argument('--smtpserver', default="localhost", help="SMTP server to use.")
-    parser.add_argument('--smtpport', default=25, help="SMTP port to connect to.")
-    parser.add_argument('--smtpto', default="root", help="SMTP To: address.")
-    parser.add_argument('--smtpfrom', default="root", help="SMTP From: address.")
+    # Send a stream message
+    request = {
+        "type": "stream",
+        "to": config_options['APP']['ZULIP_STREAM'],
+        "topic": domain,
+        "content": "The domain %s is set to expire in %d days. Please check with customer if they wish to renew." % (domain, days)
+    }
+    result = client.send_message(request)
+    print(result)
 
-    # Return a dict() with all of the arguments passed in
-    return(vars(parser.parse_args()))
+
+def process_config_file():
+
+    with open("config.yaml", 'r') as stream:
+        config_options = yaml.safe_load(stream)
+
+    return(config_options)
 
 
 def main():
@@ -199,47 +203,25 @@ def main():
         Main loop
     """
     days_remaining = 0
-    conf_options = processcli()
+    conf_options = process_config_file()
+    expiration_days = conf_options['APP']['EXPIRE_DAYS_THRESHOLD']
 
-    if conf_options["interactive"]:
+    if conf_options['APP']['INTERACTIVE']:
         print_heading()
 
-    if conf_options["domainfile"]:
-        with open(conf_options["domainfile"], "r") as domains_to_process:
-            for line in domains_to_process:
-                try:
-                     domainname, expiration_days = line.split()
-                except Exception as e:
-                    print("Unable to parse configuration file. Problem line \"%s\"" % line.strip())
-                    sys.exit(1)
+    for domain in conf_options['APP']['DOMAINS']:
+        expiration_date, registrar = make_whois_query(domain, conf_options)
+        days_remaining = calculate_expiration_days(expiration_days, expiration_date, conf_options)
 
-                expiration_date, registrar = make_whois_query(domainname)
-                days_remaining = calculate_expiration_days(expiration_days, expiration_date)
+        if check_expired(expiration_days, days_remaining):
+            domain_expire_notify(domain, conf_options, days_remaining)
 
-                if check_expired(expiration_days, days_remaining):
-                    domain_expire_notify(domainname, conf_options, days_remaining)
-
-                if conf_options["interactive"]:
-                    print_domain(domainname, registrar, expiration_date, days_remaining)
-
-                # Need to wait between queries to avoid triggering DOS measures like so:
-                # Your IP has been restricted due to excessive access, please wait a bit
-                time.sleep(conf_options["sleeptime"])
-
-    elif conf_options["domainname"]:
-        expiration_date, registrar = make_whois_query(conf_options["domainname"])
-        days_remaining = calculate_expiration_days(conf_options["expiredays"], expiration_date)
-
-        if check_expired(conf_options["expiredays"], days_remaining):
-            domain_expire_notify(conf_options["domainname"], conf_options, days_remaining)
-
-        if conf_options["interactive"]:
-            print_domain(conf_options["domainname"], registrar, expiration_date, days_remaining)
+        if conf_options['APP']['INTERACTIVE']:
+            print_domain(domain, registrar, expiration_date, days_remaining)
 
         # Need to wait between queries to avoid triggering DOS measures like so:
         # Your IP has been restricted due to excessive access, please wait a bit
-        time.sleep(conf_options["sleeptime"])
- 
+        time.sleep(conf_options['APP']['WHOIS_SLEEP_TIME'])
 
 if __name__ == "__main__":
     main()
