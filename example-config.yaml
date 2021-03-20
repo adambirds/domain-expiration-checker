@@ -1,0 +1,17 @@
+APP:
+  INTERACTIVE: true
+  WHOIS_SLEEP_TIME: 30
+  EXPIRE_DAYS_THRESHOLD: 30
+  ZULIP_BOT_FILE: ".zuliprc"
+  ZULIP_STREAM: "domain-expiry-tracking"
+  DEBUG: true
+  DOMAINS:
+    - "example.co.uk"
+    - "example.com"
+  NOTIFICATIONS:
+    - "ZulipAPI"
+    - "Email"
+  SMTP_SERVER: "smtp.example.com"
+  SMTP_PORT: 25
+  SMTP_FROM: "no-reply@example.com"
+  SMTP_SEND_TO: "example@example.com"
