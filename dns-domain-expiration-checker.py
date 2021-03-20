@@ -100,7 +100,7 @@ def parse_whois_data(whois_data, config_options):
 
     for line in whois_data.splitlines():
         if any(expire_string in line for expire_string in EXPIRE_STRINGS):
-            expiration_date = dateutil.parser.parse(line.partition(b": ")[2], ignoretz=True)
+            expiration_date = dateutil.parser.parse((line.partition(b": ")[2]).rstrip(b"[UTC]"), ignoretz=True)
 
         if any(registrar_string in line for registrar_string in
                REGISTRAR_STRINGS):
@@ -187,7 +187,6 @@ def send_expire_zulip_message(domain, days, config_options):
         "content": "The domain %s is set to expire in %d days. Please check with customer if they wish to renew." % (domain, days)
     }
     result = client.send_message(request)
-    print(result)
 
 
 def process_config_file():
@@ -210,6 +209,7 @@ def main():
         print_heading()
 
     for domain in conf_options['APP']['DOMAINS']:
+        print("Checking %s" % domain)
         expiration_date, registrar = make_whois_query(domain, conf_options)
         days_remaining = calculate_expiration_days(expiration_days, expiration_date, conf_options)
 
