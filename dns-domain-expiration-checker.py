@@ -118,7 +118,7 @@ def parse_whois_data(whois_data, config_options):
     return expiration_date, registrar
 
 
-def calculate_expiration_days(expire_days, expiration_date, config_options):
+def calculate_expiration_days(expire_days, expiration_date, config_options, domain):
     """
        Check to see when a domain will expire
     """
@@ -128,11 +128,9 @@ def calculate_expiration_days(expire_days, expiration_date, config_options):
         domain_expire = expiration_date - datetime.now()
     except:
         if 'ZulipAPI' in config_options['APP']['NOTIFICATIONS']:
-            send_error_zulip_message("Unable to calculate the expiration days", config_options)
-        if 'Zabbix' in config_options['APP']['SCRIPT_MONITORING']:
-            send_zabbix_script_monitoring(1, config_options)
+            send_error_zulip_message(f"Unable to calculate the expiration days for {domain}", config_options)
         print("Unable to calculate the expiration days")
-        sys.exit(1)
+        return "Unable to calculate the expiration days"
 
     if domain_expire.days < expire_days:
         return domain_expire.days
@@ -260,13 +258,15 @@ def main():
     for domain in conf_options['APP']['DOMAINS']:
         print("Checking %s" % domain)
         expiration_date, registrar = make_whois_query(domain, conf_options)
-        days_remaining = calculate_expiration_days(expiration_days, expiration_date, conf_options)
+        days_remaining = calculate_expiration_days(expiration_days, expiration_date, conf_options, domain)
+        if days_remaining == "Unable to calculate the expiration days":
+            pass
+        else:
+            if check_expired(expiration_days, days_remaining):
+                domain_expire_notify(domain, conf_options, days_remaining)
 
-        if check_expired(expiration_days, days_remaining):
-            domain_expire_notify(domain, conf_options, days_remaining)
-
-        if conf_options['APP']['INTERACTIVE']:
-            print_domain(domain, registrar, expiration_date, days_remaining)
+            if conf_options['APP']['INTERACTIVE']:
+                print_domain(domain, registrar, expiration_date, days_remaining)
 
         # Need to wait between queries to avoid triggering DOS measures like so:
         # Your IP has been restricted due to excessive access, please wait a bit
