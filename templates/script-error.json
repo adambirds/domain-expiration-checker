@@ -1,0 +1,17 @@
+{
+    "content": null,
+    "embeds": [
+        {
+            "title": "The domain expiry script has suffered the following error:",
+            "color": 16711680,
+            "fields": [
+                {
+                    "name": "Error:",
+                    "value": "Random Error"
+                }
+            ],
+            "timestamp": "2022-07-09T15:50:00.000Z"
+        }
+    ],
+    "attachments": []
+}

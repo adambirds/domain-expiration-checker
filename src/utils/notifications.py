@@ -1,11 +1,14 @@
+from datetime import datetime, timezone
 import smtplib
+from aiohttp import Payload
 import zulip
+import json
+import requests
 from pyzabbix import ZabbixSender, ZabbixMetric
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
 from .helper import debug
-
 
 def send_expire_email(domain, days, config_options):
     """
@@ -77,3 +80,48 @@ def send_zabbix_script_monitoring(status_code, config_options):
     metrics.append(m)
     zbx = ZabbixSender(use_config=config_options['APP']['ZABBIX_CONFIG_FILE'])
     zbx.send(metrics)
+
+def send_expire_discord_message(domain, days, config_options):
+    headers = {
+        'Content-Type': 'application/json'
+    }
+
+    with open("templates/domain-expiry.json", 'r') as f:
+        payload = json.load(f)
+    
+    payload['embeds'][0]['fields'][0]['value'] = domain
+    payload['embeds'][0]['fields'][1]['value'] = f"{days} Days"
+    payload['embeds'][0]['timestamp'] = datetime.now(tz=timezone.utc).isoformat()
+
+    payload = json.dumps(payload, indent=4)
+
+    response = requests.request("POST", config_options['APP']['DISCORD_WEBHOOK'], headers=headers, data=payload)
+
+def send_completion_discord_message(config_options):
+    headers = {
+        'Content-Type': 'application/json'
+    }
+
+    with open("templates/script-complete.json", 'r') as f:
+        payload = json.load(f)
+
+    payload['embeds'][0]['timestamp'] = datetime.now(tz=timezone.utc).isoformat()
+
+    payload = json.dumps(payload, indent=4)
+
+    response = requests.request("POST", config_options['APP']['DISCORD_WEBHOOK_COMPLETION'], headers=headers, data=payload)
+
+def send_error_discord_message(error, config_options):
+    headers = {
+        'Content-Type': 'application/json'
+    }
+
+    with open("templates/script-error.json", 'r') as f:
+        payload = json.load(f)
+
+    payload['embeds'][0]['fields'][0]['value'] = error
+    payload['embeds'][0]['timestamp'] = datetime.now(tz=timezone.utc).isoformat()
+
+    payload = json.dumps(payload, indent=4)
+
+    response = requests.request("POST", config_options['APP']['DISCORD_WEBHOOK_ERROR'], headers=headers, data=payload)

@@ -10,11 +10,15 @@ APP:
     - "example.co.uk"
     - "example.com"
   NOTIFICATIONS:
+    - "Discord"
     - "ZulipAPI"
     - "Email"
   SCRIPT_MONITORING:
     - 'Zabbix'
   ZABBIX_CONFIG_FILE: "/etc/zabbix/zabbix_agent2.conf"
+  DISCORD_WEBHOOK: ""
+  DISCORD_WEBHOOK_COMPLETION: ""
+  DISCORD_WEBHOOK_ERROR: ""
   SERVER_NAME: "server.example.com"
   SMTP_SERVER: "smtp.example.com"
   SMTP_PORT: 25

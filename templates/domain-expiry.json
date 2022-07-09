@@ -1,0 +1,23 @@
+{
+    "content": null,
+    "embeds": [
+        {
+            "title": "The following domain will expire soon:",
+            "color": 16711680,
+            "fields": [
+                {
+                    "name": "Domain",
+                    "value": "example.com",
+                    "inline": true
+                },
+                {
+                    "name": "Expiration",
+                    "value": "9 Days",
+                    "inline": true
+                }
+            ],
+            "timestamp": "2022-07-09T14:02:00.000Z"
+        }
+    ],
+    "attachments": []
+}

@@ -22,7 +22,7 @@ import yaml
 from datetime import datetime
 
 from utils.helper import debug
-from utils.notifications import send_completion_zulip_message, send_error_zulip_message, send_expire_email, send_expire_zulip_message, send_zabbix_script_monitoring
+from utils.notifications import send_completion_zulip_message, send_completion_discord_message, send_error_zulip_message, send_error_discord_message, send_expire_email, send_expire_zulip_message, send_zabbix_script_monitoring, send_expire_discord_message
 
 EXPIRE_STRINGS = [ b"Registry Expiry Date:",
                    b"Expiration:",
@@ -65,6 +65,8 @@ def make_whois_query(domain, config_options):
     except Exception as e:
         if 'ZulipAPI' in config_options['APP']['NOTIFICATIONS']:
             send_error_zulip_message("Unable to Popen() the whois binary. Exception %s" % e, config_options)
+        if 'Discord' in config_options['APP']['NOTIFICATIONS']:
+            send_error_discord_message("Unable to Popen() the whois binary. Exception %s" % e, config_options)
         if 'Zabbix' in config_options['APP']['SCRIPT_MONITORING']:
             send_zabbix_script_monitoring(1, config_options)
         print("Unable to Popen() the whois binary. Exception %s" % e)
@@ -75,6 +77,8 @@ def make_whois_query(domain, config_options):
     except Exception as e:
         if 'ZulipAPI' in config_options['APP']['NOTIFICATIONS']:
             send_error_zulip_message("Unable to read from the Popen pipe. Exception %s" % e, config_options)
+        if 'Discord' in config_options['APP']['NOTIFICATIONS']:
+            send_error_discord_message("Unable to read from the Popen pipe. Exception %s" % e, config_options)
         if 'Zabbix' in config_options['APP']['SCRIPT_MONITORING']:
             send_zabbix_script_monitoring(1, config_options)
         print("Unable to read from the Popen pipe. Exception %s" % e)
@@ -119,6 +123,8 @@ def calculate_expiration_days(expire_days, expiration_date, config_options, doma
     except:
         if 'ZulipAPI' in config_options['APP']['NOTIFICATIONS']:
             send_error_zulip_message(f"Unable to calculate the expiration days for {domain}", config_options)
+        if 'Discord' in config_options['APP']['NOTIFICATIONS']:
+            send_error_discord_message(f"Unable to calculate the expiration days for {domain}", config_options)
         print("Unable to calculate the expiration days")
         return "Unable to calculate the expiration days"
 
@@ -153,6 +159,9 @@ def domain_expire_notify(domain, config_options, days):
 
     if 'ZulipAPI' in config_options['APP']['NOTIFICATIONS']:
         send_expire_zulip_message(domain, days, config_options)
+    
+    if 'Discord' in config_options['APP']['NOTIFICATIONS']:
+        send_expire_discord_message(domain, days, config_options)
 
 def process_config_file():
 
@@ -192,8 +201,10 @@ def main():
 
     if 'ZulipAPI' in conf_options['APP']['NOTIFICATIONS']:
         send_completion_zulip_message(conf_options)
+    if 'Discord' in conf_options['APP']['NOTIFICATIONS']:
+        send_completion_discord_message(conf_options)
     if 'Zabbix' in conf_options['APP']['SCRIPT_MONITORING']:
         send_zabbix_script_monitoring(0, conf_options)
-
+ 
 if __name__ == "__main__":
     main()
