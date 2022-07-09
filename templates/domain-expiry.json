@@ -3,7 +3,7 @@
     "embeds": [
         {
             "title": "The following domain will expire soon:",
-            "color": 16711680,
+            "color": 15651330,
             "fields": [
                 {
                     "name": "Domain",
